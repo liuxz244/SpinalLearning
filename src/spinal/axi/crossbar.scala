@@ -6,7 +6,7 @@ import spinal.lib.bus.amba4.axi._
 import learning._
 
 
-case class Crossbar() extends Component {
+case class AxiCrossbar() extends Component {
     // 定义AXI接口设置
     val masterAxiConfig = Axi4Config(
         addressWidth = 32,
@@ -28,8 +28,8 @@ case class Crossbar() extends Component {
 
     // 添加从机及其对应的地址空间大小
     crossbar.addSlaves(
-        io.slaves(0) -> (0x00000000L, 1 KiB),
-        io.slaves(1) -> (0x00010000L, 1 KiB)
+        io.slaves(0) -> (0x00000000L, 64 KiB),
+        io.slaves(1) -> (0x00010000L, 64 KiB)
     )
     // 声明互联逻辑（每个主机可以访问哪些从机）
     crossbar.addConnections(
@@ -43,5 +43,5 @@ case class Crossbar() extends Component {
 
 
 object CrossbarVerilog extends App {
-    Config.spinal.generateVerilog(Crossbar())
+    Config.spinal.generateVerilog(AxiCrossbar())
 }
