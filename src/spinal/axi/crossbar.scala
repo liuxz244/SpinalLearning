@@ -11,7 +11,9 @@ case class AxiCrossbar() extends Component {
     val masterAxiConfig = Axi4Config(
         addressWidth = 32,
         dataWidth    = 32,
-        idWidth      = 4
+        idWidth      = 4,
+        useRegion    = false,
+        useQos       = false
     )
     val slaveAxiConfig = masterAxiConfig.copy(idWidth = 5)
     // 注意从机的ID宽度应为主机ID宽度最大值加上log2up(主机数)，在这里是 5 = 4 + log2up(2)
@@ -19,8 +21,8 @@ case class AxiCrossbar() extends Component {
 
     // 定义两个AXI4主机和两个从机接口
     val io = new Bundle {
-        val masters = Vec(slave (Axi4(masterAxiConfig)), 2)
-        val slaves  = Vec(master(Axi4(slaveAxiConfig )), 2)
+        val masters = Vec(slave (Axi4(     masterAxiConfig)), 2)
+        val slaves  = Vec(master(Axi4Shared(slaveAxiConfig)), 2)
     }
 
     // 创建交叉开关

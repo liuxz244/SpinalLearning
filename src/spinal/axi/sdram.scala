@@ -5,38 +5,64 @@ import spinal.core.sim._
 import spinal.lib._
 import spinal.lib.bus.amba4.axi._
 import spinal.lib.bus.amba4.axi.sim._
+import spinal.lib.memory.sdram._ 
+import spinal.lib.memory.sdram.sdr.sim.SdramModel 
+import spinal.lib.memory.sdram.sdr.{Axi4SharedSdramCtrl, MT48LC16M16A2, SdramInterface, SdramTimings}
+import java.nio.file.{Files, Paths, StandardCopyOption}
 import spinal.lib.eda.altera.QuartusFlow
 import learning._
 
 
-case class AxiOnChipRam() extends Component{
+object SharedSdramCtrlVerilog extends App {
+    // 使用Axi4SharedSdramCtrl需要在Config里设置默认频率
+    Config.spinal.generateVerilog(
+        Axi4SharedSdramCtrl(
+            axiDataWidth = 32,
+            axiIdWidth   = 5,
+            layout       = MT48LC16M16A2.layout,
+            timing       = MT48LC16M16A2.timingGrade7,
+            CAS          = 3
+        )
+    )
+}
+
+
+case class AxiSdramCtrl() extends Component{
     // 定义AXI接口
     val io = new Bundle {
-        val axi = slave(Axi4(Axi4Config(32, 32, 5, useRegion = false, useQos = false)))
+        val axi = slave(Axi4(Axi4Config(32, 32, 5, useRegion = false, useLock = false, useCache = false, useQos = false, useProt = false)))
+        val sdram = master(SdramInterface(MT48LC16M16A2.layout))
     }  // 使Quartus能测试引脚过多的模块：
     io.axi.addAttribute("altera_attribute", "-name VIRTUAL_PIN ON")
 
     // 创建一个片上RAM
-    val ram = Axi4SharedOnChipRam(
-        dataWidth = 32,
-        byteCount = 4096,
-        idWidth   = 5
+    val sdramCtrl = Axi4SharedSdramCtrl(
+        axiDataWidth = 32,
+        axiIdWidth   = 5,
+        layout       = MT48LC16M16A2.layout,
+        timing       = MT48LC16M16A2.timingGrade7,
+        CAS          = 3
     )
 
     // 将AXI接口连接到片上RAM
-    io.axi.toShared() >> ram.io.axi
+    io.axi.toShared() >> sdramCtrl.io.axi
+    io.sdram <> sdramCtrl.io.sdram
 }
 
 
-object OnChipRamSim {
+object SdramCtrlVerilog extends App {
+    Config.spinal.generateVerilog(AxiSdramCtrl())
+}
+
+
+object SdramCtrlSim {
     def main(args: Array[String]): Unit = {
-        // 编译并仿真AxiOnChipRam
-        Config.sim.compile(new AxiOnChipRam()).doSim { dut =>
-            // 时钟复位
+        Config.sim.compile(new AxiSdramCtrl()).doSim { dut =>
             dut.clockDomain.forkStimulus(10)
-            // 创建AXI主设备，连接到片上RAM的从设备接口
+            // 创建仿真用AXI主设备
             val axiMaster = Axi4Master(dut.io.axi, dut.clockDomain, "test")
-            // 等待一点时间让系统复位稳定
+            // 创建仿真用SDRAM模型
+            val sdram = SdramModel(dut.io.sdram, MT48LC16M16A2.layout, dut.clockDomain)
             dut.clockDomain.waitSampling(10)
 
             // 写测试数据到片上RAM的地址0x100（示例地址）
@@ -57,26 +83,8 @@ object OnChipRamSim {
 
             // 等待几个时钟周期再结束仿真
             dut.clockDomain.waitSampling(10)
+            SimUtil.copyWaveFile()  // 拷贝在/tmp生成的波形文件到目标目录
             simSuccess()
         }
     }
-}
-
-
-object OnChipRamQuartus extends App {
-    val report = QuartusFlow(
-        quartusPath="/opt/quartus/24.1Lite/quartus/bin",
-        workspacePath="/tmp/spinalqr/",
-        toplevelPath="src/verilog/AxiOnChipRam.v",
-        family="Cyclone V",
-        device="5CEBA2F23C8",
-        frequencyTarget = 54 MHz
-    );  println(" \n")
-    println("Quartus编译报告:")
-    println(report)
-}
-
-
-object OnChipRamVerilog extends App {
-    Config.spinal.generateVerilog(AxiOnChipRam())
 }

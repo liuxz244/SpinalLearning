@@ -14,7 +14,9 @@ case class AxiToLite() extends Component {
     val AxiConfig = Axi4Config(
         addressWidth = 32,
         dataWidth    = 32,
-        idWidth      = 4
+        idWidth      = 4,
+        useRegion    = false,
+        useQos       = false
     )
     val AxiLiteConfig = AxiLite4Config(
         addressWidth = AxiConfig.addressWidth,
@@ -30,6 +32,7 @@ case class AxiToLite() extends Component {
     // 接口转换
     io.Axi.toLite() >> io.AxiLite
 }
+
 
 object ToLiteVerilog extends App {
     Config.spinal.generateVerilog(AxiToLite())
