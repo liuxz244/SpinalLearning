@@ -57,13 +57,14 @@ object SdramCtrlVerilog extends App {
 
 object SdramCtrlSim {
     def main(args: Array[String]): Unit = {
-        Config.sim.compile(new AxiSdramCtrl()).doSim { dut =>
-            dut.clockDomain.forkStimulus(10)
+        SimUtil.withWaveCopy(new AxiSdramCtrl()) { dut =>
             // 创建仿真用AXI主设备
             val axiMaster = Axi4Master(dut.io.axi, dut.clockDomain, "test")
             // 创建仿真用SDRAM模型
             val sdram = SdramModel(dut.io.sdram, MT48LC16M16A2.layout, dut.clockDomain)
-            dut.clockDomain.waitSampling(10)
+            // 时钟复位
+            dut.clockDomain.forkStimulus(5)
+            dut.clockDomain.waitSampling(5)
 
             // 写测试数据到片上RAM的地址0x100（示例地址）
             val writeAddress = 0x100
@@ -83,8 +84,6 @@ object SdramCtrlSim {
 
             // 等待几个时钟周期再结束仿真
             dut.clockDomain.waitSampling(10)
-            SimUtil.copyWaveFile()  // 拷贝在/tmp生成的波形文件到目标目录
-            simSuccess()
         }
     }
 }

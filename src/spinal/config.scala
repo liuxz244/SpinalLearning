@@ -21,16 +21,37 @@ object Config {
 
 
 object SimUtil {
+    /**
+        * 编译并仿真一个模块，仿真结束后自动复制 wave.vcd 到指定目录。
+        *
+        * @param gen     要仿真的 Component 生成函数
+        * @param outDir  波形存放目录（默认 "sim"）
+        * @param body    在 doSim {} 中执行的测试逻辑
+        */
+    def withWaveCopy[T <: Component](
+        gen: => T,
+        outDir: String = "sim"
+    ) (body: T => Unit): Unit = {
+        var wavePath: java.nio.file.Path = null
+        var moduleName: String = ""
+        // 1) 编译并仿真
+        Config.sim.compile(gen).doSim { dut =>
+            // 用户测试逻辑
+            body(dut)
 
-    //  拷贝在/tmp生成的 wave.vcd 到目标目录，并按模块名重命名 
-    def copyWaveFile(): Unit = {
+            // 标记仿真成功，并记录波形文件位置
+            wavePath = Paths.get(currentTestPath(), "wave.vcd")
+            val waveStr = wavePath.toString
+            moduleName  = waveStr.split("/")(3)
+            simSuccess()
+        }
 
-        val wave = Paths.get(currentTestPath(), "wave.vcd")
-        val waveStr = wave.toString
-        val module = waveStr.split("/")(3)
-        Files.copy(wave, Paths.get(s"sim/$module.vcd"), StandardCopyOption.REPLACE_EXISTING)
+        // 2) 确保目标目录存在
+        Files.createDirectories(Paths.get(outDir))
 
-        println(s"波形已保存到: sim/$module.vcd")
+        // 3) 复制波形到 outDir/{moduleName}.vcd
+        val destPath = Paths.get(outDir, s"$moduleName.vcd")
+        Files.copy(wavePath, destPath, StandardCopyOption.REPLACE_EXISTING)
+        println(s"波形已保存到: $destPath")
     }
-
 }

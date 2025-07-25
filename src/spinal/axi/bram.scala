@@ -27,17 +27,14 @@ case class AxiOnChipRam() extends Component{
     io.axi.toShared() >> ram.io.axi
 }
 
-
 object OnChipRamSim {
     def main(args: Array[String]): Unit = {
-        // 编译并仿真AxiOnChipRam
-        Config.sim.compile(new AxiOnChipRam()).doSim { dut =>
-            // 时钟复位
-            dut.clockDomain.forkStimulus(10)
-            // 创建AXI主设备，连接到片上RAM的从设备接口
+        SimUtil.withWaveCopy(new AxiOnChipRam()) { dut =>
+            // 创建仿真用AXI主设备
             val axiMaster = Axi4Master(dut.io.axi, dut.clockDomain, "test")
-            // 等待一点时间让系统复位稳定
-            dut.clockDomain.waitSampling(10)
+            // 时钟复位
+            dut.clockDomain.forkStimulus(5)
+            dut.clockDomain.waitSampling(5)
 
             // 写测试数据到片上RAM的地址0x100（示例地址）
             val writeAddress = 0x100
@@ -54,10 +51,6 @@ object OnChipRamSim {
             assert(readData == writeData, "读取的数据与写入的数据不一致！")
             println("读取的数据与写入的数据一致，测试通过。")
             println(" \n")
-
-            // 等待几个时钟周期再结束仿真
-            dut.clockDomain.waitSampling(10)
-            simSuccess()
         }
     }
 }
